@@ -21,6 +21,21 @@ export const ICON_PATHS = {
   add: 'M12 5v14 M5 12h14',
   close: 'M18 6 6 18 M6 6l12 12',
   refresh: 'M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8 M21 3v5h-5',
+  'chevron-right': 'M9 18l6-6-6-6',
+  'chevron-left': 'M15 18l-6-6 6-6',
+  today: 'M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8 M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  list: 'M3 12h.01 M3 18h.01 M3 6h.01 M8 12h13 M8 18h13 M8 6h13',
+  settings: 'M20 7h-9 M14 17H5 M17 14a3 3 0 1 0 0 6a3 3 0 1 0 0-6Z M7 4a3 3 0 1 0 0 6a3 3 0 1 0 0-6Z',
+  locate: 'M2 12h3 M19 12h3 M12 2v3 M12 19v3 M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10Z',
+  grip: 'M9 6h.01 M9 12h.01 M9 18h.01 M15 6h.01 M15 12h.01 M15 18h.01',
+  trash: 'M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+  thermometer: 'M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z',
+  umbrella: 'M22 12a10.06 10.06 1 0 0-20 0Z M12 12v8a2 2 0 0 0 4 0 M12 2v1',
+  check: 'M20 6 9 17l-5-5',
+  edit: 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z',
+  'arrow-up': 'M12 19V5 M5 12l7-7 7 7',
+  'arrow-down': 'M12 5v14 M19 12l-7 7-7-7',
+  info: 'M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20Z M12 16v-4 M12 8h.01',
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

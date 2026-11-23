@@ -29,8 +29,35 @@ export class WeatherProviderError extends Error {
   }
 }
 
-/** Fetches JSON and turns failures into WeatherProviderError. Shared by HTTP providers. */
-export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+const RETRY_DELAYS_MS = [400, 1200];
+
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(new DOMException('Aborted', 'AbortError'));
+    });
+  });
+
+/**
+ * Fetches JSON and turns failures into WeatherProviderError. Network errors,
+ * 5xx and 429 answers are retried twice with a short backoff. Shared by HTTP providers.
+ */
+export async function fetchJson<T>(url: string, signal?: AbortSignal, retries = RETRY_DELAYS_MS): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchJsonOnce<T>(url, signal);
+    } catch (err) {
+      const e = err as WeatherProviderError;
+      const transient = e?.name === 'WeatherProviderError' && (e.kind === 'network' || e.kind === 'rate-limited' || (e.kind === 'http' && (e.status ?? 0) >= 500));
+      if (!transient || attempt >= retries.length) throw err;
+      await sleep(retries[attempt], signal);
+    }
+  }
+}
+
+async function fetchJsonOnce<T>(url: string, signal?: AbortSignal): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, { signal, headers: { Accept: 'application/json' } });

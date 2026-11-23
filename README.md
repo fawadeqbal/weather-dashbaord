@@ -15,33 +15,49 @@ npm run build      # type-check and production build into dist/
 
 Open `http://localhost:5173/?provider=mock` to use the built-in sample data instead of the live API (works offline).
 
-## What it does
+## Screens
 
-- Five starter cities (San Francisco, Tokyo, Sydney, London, Reykjavík). Search adds any city through the geocoder; cities, the selected city and the °C/°F choice are saved in the browser.
-- For the selected city it shows the current conditions with a generated one-line forecast, the next 24 hours, 7 days, wind, UV, humidity, sunrise and sunset, air quality and pressure.
-- Each city's sky photo and colour theme follow its weather and local time: rain, storm, snow, fog, overcast, partly cloudy, sunny, sunrise, dusk, a starry night, a cloudy night, or an aurora on clear nights at high latitudes. Rain and snow fall over the photo (off under reduced motion).
-- Forecasts refresh every 15 minutes, and when you come back to the tab after that long. If a refresh fails, the last forecast stays on screen with a notice and a **Try again** button.
-- The header shows the city's real local time, not your own.
+Every screen has its own address (hash routes, so they work on GitHub Pages), and Back, refresh and sharing a link all work.
+
+| Screen | Address | What it shows |
+|---|---|---|
+| Today | `#/` or `#/p/<city>` | Current conditions with a one-line forecast, the next 24 hours, the 7-day forecast and eight "Right now" tiles. Arrows, pager dots or a swipe move between saved cities. |
+| Hourly | `#/p/<city>/hourly` | An interactive chart (temperature, feels like, precipitation, wind, humidity, UV) for 24 or 48 hours, and an hour-by-hour table grouped by day. |
+| Day | `#/p/<city>/day/<n>` | One day: conditions, high and low, a summary, precipitation, wind, UV, daylight, and hourly temperature and rain charts. Day chips switch days. |
+| Metric | `#/p/<city>/metric/<name>` | Feels like, wind, precipitation, UV, humidity, air quality, sun, pressure or visibility: the value, what it means, a 24-hour chart and extras such as the AQI scale or a week of sunrise times. |
+| Locations | `#/locations` | Saved cities with their live sky. Search to add, use your current location, and **Edit** to reorder (drag, arrow keys or buttons) or remove with **Undo**. |
+| Settings | `#/settings` | Units for temperature, wind, pressure, distance, precipitation and the clock (with Metric/Imperial presets), data source, refresh, reset. |
+
+Micro-interactions: page transitions, the hero temperature counts to its new value, charts you can hover, drag or read with the arrow keys, tiles that lift on hover and press in, a sliding selection pill on toggles, toasts with Undo, photos that crossfade between weathers, and rain or snow falling over the photo. All motion stops under reduced motion.
+
+Forecasts refresh every 15 minutes and when you come back to the tab after that long. Brief network or server errors are retried automatically; if a refresh still fails, the last forecast stays on screen with a **Try again** button.
 
 ## Project layout
 
 ```
 src/
+  App.tsx               Provider + shell
+  app/
+    router.ts           Hash routes and link builders
+    store.tsx           Saved cities, unit preferences, forecasts, toasts
+    Shell.tsx           Sky, header, navigation, page transitions
+    series.ts           Chartable hourly series shared by the detail pages
+    pages/              Today, Hourly, Day, Metric, Locations, Settings
   design-system/        Nimbus components, tokens.css and nimbus.css
   weather/
     types.ts            The app's own weather model (provider-neutral, metric)
+    format.ts           Unit preferences and every display format
+    selectors.ts        What each screen picks out of a forecast
+    summary.ts          The forecast sentences
+    conditions.ts       WMO weather codes → icons/labels; weather → theme + photo
+    units.ts, time.ts   Words for values (UV, AQI, wind force…), local-time helpers
+    hooks.ts            useForecasts, usePlaceSearch, useStoredState
     providers/
-      types.ts          WeatherProvider interface, WeatherProviderError, fetchJson
+      types.ts          WeatherProvider interface, errors, fetchJson with retries
       openMeteo.ts      Open-Meteo adapter (forecast, air quality, geocoding)
-      mock.ts           Sample data for the five starter cities
+      mock.ts           Seven days of sample data for the five starter cities
       index.ts          Provider registry and selection
       __fixtures__/     Real Open-Meteo responses used by the tests
-    conditions.ts       WMO weather codes → icons/labels; weather → theme + photo
-    present.ts          Forecast → exactly what the screen shows, in your units
-    summary.ts          The one-line forecast sentence
-    units.ts, time.ts   Unit conversion, labels, local-time helpers
-    hooks.ts            useForecasts, usePlaceSearch, useStoredState
-  App.tsx               The screen
 public/skies/           Sky photos (Unsplash licence)
 ```
 
@@ -60,8 +76,8 @@ interface WeatherProvider {
 
 Rules every provider follows:
 
-- Return metric values (°C, km/h, km, hPa). The app converts for display.
-- Give times as the place's local wall-clock time without an offset (`"2026-11-23T14:41"`), with `hourly` starting at the current hour (at least 25 entries) and `daily` starting today.
+- Return metric values (°C, km/h, km, hPa, mm). The app converts for display.
+- Give times as the place's local wall-clock time without an offset (`"2026-11-23T14:41"`). `hourly` covers every day in `daily`, starting at 00:00 today, with temperature, feels like, precipitation, wind, humidity, pressure, UV and visibility where the API has them (`null` otherwise); `daily` starts today.
 - Map conditions to the Nimbus icons (`sun`, `moon`, `partly`, `cloud`, `rain`, `snow`, `storm`). If the API uses WMO codes, reuse `fromWmoCode()`.
 - Put weather warnings in `alerts` if the API has them (Open-Meteo does not, so the list is empty there). The first alert shows as a banner.
 - Fail with `WeatherProviderError` (use `fetchJson()` for HTTP), and pass `signal` to `fetch` so switching cities cancels stale requests.
