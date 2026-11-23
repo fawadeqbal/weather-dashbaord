@@ -75,6 +75,54 @@ describe('Nimbus app with sample data', () => {
     expect(screen.getByText('What the numbers mean')).toBeTruthy();
   });
 
+  it('shows the outlook, next 2 hours, warnings and compare screens', async () => {
+    await renderApp('#/p/5391959/outlook');
+    expect(h1()).toBe('16-day outlook');
+    expect(await screen.findByText('Days 8 to 16')).toBeTruthy();
+    expect(screen.getByText(/Lower confidence/)).toBeTruthy();
+
+    await go('#/p/2643743/nowcast');
+    expect(h1()).toBe('Next 2 hours');
+    expect(screen.getByText('Every 15 minutes')).toBeTruthy();
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(8);
+
+    await go('#/p/2643743/alert');
+    expect(h1()).toBe('Weather warnings');
+    expect(screen.getByText('What to do')).toBeTruthy();
+
+    await go('#/p/5391959/alert');
+    expect(screen.getByText(/No weather warnings for San Francisco/)).toBeTruthy();
+
+    await go('#/compare');
+    expect(h1()).toBe('Compare cities');
+    fireEvent.click(screen.getByRole('radio', { name: 'Wind' }));
+    expect(screen.getByText(/^Calmest now:/)).toBeTruthy();
+  });
+
+  it('links Today to the new screens', async () => {
+    await renderApp('#/p/2643743');
+    expect(screen.getByRole('link', { name: /What to do/ }).getAttribute('href')).toBe('#/p/2643743/alert');
+    expect(screen.getByRole('link', { name: /Next 2 hours/ }).getAttribute('href')).toBe('#/p/2643743/nowcast');
+    expect(screen.getByRole('link', { name: /16 days/ }).getAttribute('href')).toBe('#/p/2643743/outlook');
+  });
+
+  it('shows pollutants, pollen and the old visibility address as Clouds', async () => {
+    await renderApp('#/p/2643743/metric/air');
+    expect(screen.getByText('Pollutants')).toBeTruthy();
+    expect(screen.getByText('Grass')).toBeTruthy();
+    await go('#/p/5391959/metric/air');
+    expect(screen.getByText(/only available for Europe/)).toBeTruthy();
+    await go('#/p/5391959/metric/visibility');
+    expect(h1()).toBe('Clouds and visibility');
+  });
+
+  it('opens on the first city when Settings says so', async () => {
+    window.localStorage.setItem('nimbus.selected', JSON.stringify('geo:3413829'));
+    window.localStorage.setItem('nimbus.startOn', JSON.stringify('first'));
+    await renderApp('#/');
+    expect(h1()).toMatch(/^San Francisco/);
+  });
+
   it('manages locations: filter, reorder and remove with undo', async () => {
     await renderApp('#/locations');
     expect(h1()).toBe('Locations');

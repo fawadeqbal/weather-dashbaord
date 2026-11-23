@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WeatherProvider } from './providers';
-import type { Forecast, Place } from './types';
+import type { DailyWeather, Forecast, Place } from './types';
 
 export type ForecastState =
   | { status: 'loading'; forecast?: Forecast }
@@ -62,9 +62,12 @@ export function useForecasts(provider: WeatherProvider, places: Place[]) {
     };
     const id = window.setInterval(tick, 60 * 1000);
     document.addEventListener('visibilitychange', tick);
+    // Coming back online: refresh straight away.
+    window.addEventListener('online', refreshAll);
     return () => {
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('online', refreshAll);
     };
   }, [refreshAll]);
 
@@ -75,6 +78,69 @@ export function useForecasts(provider: WeatherProvider, places: Place[]) {
   }, []);
 
   return { states, reload: load, refreshAll };
+}
+
+export type OutlookState =
+  | { status: 'unsupported' }
+  | { status: 'loading' }
+  | { status: 'ready'; days: DailyWeather[] }
+  | { status: 'error'; error: string };
+
+const outlookCache = new Map<string, { at: number; days: DailyWeather[] }>();
+
+/** The long-range daily forecast for one place, fetched when a screen asks for it and kept for 30 minutes. */
+export function useOutlook(provider: WeatherProvider, place: Place | undefined): OutlookState & { retry: () => void } {
+  const key = place ? `${provider.id}:${place.id}` : '';
+  const cached = outlookCache.get(key);
+  const fresh = cached && Date.now() - cached.at < 2 * REFRESH_MS;
+  const [state, setState] = useState<OutlookState>(() =>
+    !provider.getOutlook ? { status: 'unsupported' } : fresh ? { status: 'ready', days: cached.days } : { status: 'loading' },
+  );
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!place || !provider.getOutlook) {
+      setState({ status: 'unsupported' });
+      return;
+    }
+    const hit = outlookCache.get(key);
+    if (hit && Date.now() - hit.at < 2 * REFRESH_MS) {
+      setState({ status: 'ready', days: hit.days });
+      return;
+    }
+    const ctrl = new AbortController();
+    setState({ status: 'loading' });
+    provider
+      .getOutlook(place, { signal: ctrl.signal })
+      .then((days) => {
+        outlookCache.set(key, { at: Date.now(), days });
+        if (!ctrl.signal.aborted) setState({ status: 'ready', days });
+      })
+      .catch((err: unknown) => {
+        if (ctrl.signal.aborted || (err as Error)?.name === 'AbortError') return;
+        setState({ status: 'error', error: err instanceof Error ? err.message : 'Could not load the outlook.' });
+      });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, attempt]);
+
+  return { ...state, retry: () => setAttempt((a) => a + 1) };
+}
+
+/** True while the browser reports a network connection. */
+export function useOnline(): boolean {
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false));
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  return online;
 }
 
 /** Debounced place search through the provider's geocoder. */

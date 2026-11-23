@@ -23,10 +23,16 @@ Every screen has its own address (hash routes, so they work on GitHub Pages), an
 |---|---|---|
 | Today | `#/` or `#/p/<city>` | Current conditions with a one-line forecast, the next 24 hours, the 7-day forecast and eight "Right now" tiles. Arrows, pager dots or a swipe move between saved cities. |
 | Hourly | `#/p/<city>/hourly` | An interactive chart (temperature, feels like, precipitation, wind, humidity, UV) for 24 or 48 hours, and an hour-by-hour table grouped by day. |
-| Day | `#/p/<city>/day/<n>` | One day: conditions, high and low, a summary, precipitation, wind, UV, daylight, and hourly temperature and rain charts. Day chips switch days. |
-| Metric | `#/p/<city>/metric/<name>` | Feels like, wind, precipitation, UV, humidity, air quality, sun, pressure or visibility: the value, what it means, a 24-hour chart and extras such as the AQI scale or a week of sunrise times. |
-| Locations | `#/locations` | Saved cities with their live sky. Search to add, use your current location, and **Edit** to reorder (drag, arrow keys or buttons) or remove with **Undo**. |
-| Settings | `#/settings` | Units for temperature, wind, pressure, distance, precipitation and the clock (with Metric/Imperial presets), data source, refresh, reset. |
+| Day | `#/p/<city>/day/<n>` | One day: conditions, high and low, a summary, precipitation, wind, UV, daylight, sunshine and wet hours, and hourly temperature and rain charts. Day chips switch days. |
+| 16-day outlook | `#/p/<city>/outlook` | A one-sentence summary (warmest, coldest, wettest), the next 7 days, then days 8–16 marked lower confidence. Every range bar shares one scale. |
+| Next 2 hours | `#/p/<city>/nowcast` | Rain or snow every 15 minutes with the intensity in words (light, moderate, heavy), and when it starts or stops. Today shows a card linking here when rain is near. |
+| Warnings | `#/p/<city>/alert` | Each warning with its severity in words, how long it lasts, practical steps, and the details. Says so plainly when there are none. |
+| Metric | `#/p/<city>/metric/<name>` | Feels like (and why), wind (strength scale, gust peak, wind at 80–180 m), precipitation (next rain first; rain, showers and snow split), UV (when to protect, cloudless-sky peak), humidity (comfort scale), air quality (pollutants against WHO guidelines; pollen in Europe), sun (golden hours, sunshine, daylight change), pressure (past and next 24 h), clouds and visibility (cloud layers, sunshine). |
+| Compare | `#/compare` | Saved cities side by side by temperature, rain, wind or air quality, with the answer first ("Warmest now: …"). |
+| Locations | `#/locations` | Saved cities with their live sky and a badge when a warning is active. Search to add, use your current location (with help when it's turned off), **Compare**, and **Edit** to reorder (drag, arrow keys or buttons) or remove with **Undo**. |
+| Settings | `#/settings` | Units for temperature, wind, pressure, distance, precipitation and the clock (with Metric/Imperial presets), which city the app opens on, data source, refresh, reset. |
+
+When the browser goes offline, a bar says so and the last forecast stays on screen; everything refreshes when the connection returns.
 
 Micro-interactions: page transitions, the hero temperature counts to its new value, charts you can hover, drag or read with the arrow keys, tiles that lift on hover and press in, a sliding selection pill on toggles, toasts with Undo, photos that crossfade between weathers, and rain or snow falling over the photo. All motion stops under reduced motion.
 
@@ -49,13 +55,14 @@ src/
     format.ts           Unit preferences and every display format
     selectors.ts        What each screen picks out of a forecast
     summary.ts          The forecast sentences
+    insights.ts         Plain-language readings: next rain, rain intensity, UV window, pollutant guidelines, pollen, golden hour
     conditions.ts       WMO weather codes → icons/labels; weather → theme + photo
     units.ts, time.ts   Words for values (UV, AQI, wind force…), local-time helpers
     hooks.ts            useForecasts, usePlaceSearch, useStoredState
     providers/
       types.ts          WeatherProvider interface, errors, fetchJson with retries
       openMeteo.ts      Open-Meteo adapter (forecast, air quality, geocoding)
-      mock.ts           Seven days of sample data for the five starter cities
+      mock.ts           Seven days (plus a 16-day outlook) of sample data for the five starter cities
       index.ts          Provider registry and selection
       __fixtures__/     Real Open-Meteo responses used by the tests
 public/skies/           Sky photos (Unsplash licence)
@@ -71,13 +78,16 @@ interface WeatherProvider {
   name: string;   // shown in the attribution line
   getForecast(place: Place, options?: { signal?: AbortSignal }): Promise<Forecast>;
   searchPlaces(query: string, options?: { signal?: AbortSignal }): Promise<Place[]>;
+  getOutlook?(place: Place, options?: { signal?: AbortSignal }): Promise<DailyWeather[]>; // optional, up to 16 days
 }
 ```
 
 Rules every provider follows:
 
 - Return metric values (°C, km/h, km, hPa, mm). The app converts for display.
-- Give times as the place's local wall-clock time without an offset (`"2026-11-23T14:41"`). `hourly` covers every day in `daily`, starting at 00:00 today, with temperature, feels like, precipitation, wind, humidity, pressure, UV and visibility where the API has them (`null` otherwise); `daily` starts today.
+- Give times as the place's local wall-clock time without an offset (`"2026-11-23T14:41"`). `hourly` covers every day in `daily`, starting at 00:00 on the first day, with temperature, feels like, precipitation, wind, humidity, pressure, UV and visibility where the API has them (`null` otherwise). `daily` may start with yesterday (it powers "pressure over the past 24 hours" and "daylight vs yesterday"); screens find today with `dayIndexOf()`.
+- Optional extras light up more detail when present and are simply hidden when not: cloud layers, clear-sky UV, rain / showers / snowfall, wind at 80–180 m, sunshine and daylight duration, wet hours, 15-minute precipitation (`minutely15`), European AQI, pollutants and pollen. Open-Meteo provides all of them (pollen in Europe only); if the extended request is rejected the provider retries with the core fields.
+- Implement `getOutlook` to enable the 16-day screen; leave it out and the "16 days" link disappears.
 - Map conditions to the Nimbus icons (`sun`, `moon`, `partly`, `cloud`, `rain`, `snow`, `storm`). If the API uses WMO codes, reuse `fromWmoCode()`.
 - Put weather warnings in `alerts` if the API has them (Open-Meteo does not, so the list is empty there). The first alert shows as a banner.
 - Fail with `WeatherProviderError` (use `fetchJson()` for HTTP), and pass `signal` to `fetch` so switching cities cancels stale requests.

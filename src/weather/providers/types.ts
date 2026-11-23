@@ -1,4 +1,4 @@
-import type { Forecast, Place } from '../types';
+import type { DailyWeather, Forecast, Place } from '../types';
 
 /**
  * A weather data source. To add another API, implement this interface in a new
@@ -13,6 +13,11 @@ export interface WeatherProvider {
   getForecast(place: Place, options?: { signal?: AbortSignal }): Promise<Forecast>;
   /** City search for the "add a city" box. Return [] when nothing matches. */
   searchPlaces(query: string, options?: { signal?: AbortSignal }): Promise<Place[]>;
+  /**
+   * Optional long-range daily forecast (up to 16 days) for the outlook screen.
+   * Providers without one leave it out and the app hides the outlook.
+   */
+  getOutlook?(place: Place, options?: { signal?: AbortSignal }): Promise<DailyWeather[]>;
 }
 
 export type ProviderErrorKind = 'network' | 'http' | 'parse' | 'not-found' | 'rate-limited' | 'unauthorized';

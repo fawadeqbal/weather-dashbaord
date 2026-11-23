@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { AlertBanner, BackLink, GlassPanel } from '../../design-system';
+import { AlertBanner, BackLink, GlassPanel, WeatherIcon, type IconName } from '../../design-system';
 import type { ForecastState } from '../../weather/hooks';
 import { localNow } from '../../weather/selectors';
 import type { Forecast, Place } from '../../weather/types';
@@ -83,6 +83,20 @@ export function NotSaved() {
       <a className="nb-text-btn" href={href.locations()}>
         Go to Locations
       </a>
+    </GlassPanel>
+  );
+}
+
+/** A small labelled fact card: label, big value, one-line note. */
+export function Fact({ icon, label, value, note }: { icon: IconName; label: string; value: string; note: string }) {
+  return (
+    <GlassPanel as="article" padding="md" radius="xl" className="fact">
+      <h2 className="nb-label">
+        <WeatherIcon condition={icon} size={15} strokeWidth={1.8} tinted={false} />
+        {label}
+      </h2>
+      <p className="fact-value">{value}</p>
+      <p className="fact-note">{note}</p>
     </GlassPanel>
   );
 }

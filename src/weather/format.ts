@@ -121,6 +121,8 @@ export function makeFormat(prefs: UnitPrefs) {
     tempValue,
     temp: (c: number) => formatTemp(tempValue(c)),
     tempUnitLabel: prefs.temp === 'F' ? '°F' : '°C',
+    /** A temperature difference, e.g. "3°C" or "5°F" (no 32° offset). */
+    tempDelta: (dc: number) => `${Math.max(1, Math.round(prefs.temp === 'F' ? (Math.abs(dc) * 9) / 5 : Math.abs(dc)))}°${prefs.temp}`,
     wind,
     windText: (kmh: number) => {
       const m = wind(kmh);

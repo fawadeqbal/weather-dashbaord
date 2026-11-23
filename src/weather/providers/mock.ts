@@ -30,6 +30,8 @@ export interface Sample {
   pressure: number;
   trend: PressureTrend;
   vis: number;
+  /** Europe gets pollen data. */
+  europe?: boolean;
   alerts?: WeatherAlert[];
 }
 
@@ -52,16 +54,21 @@ export const SAMPLES: Record<string, Sample> = {
   'geo:2643743': {
     now: '2026-11-23T22:41', condition: 'rain', label: 'Heavy rain', isDay: false, temp: 8, feels: 4,
     days: [['rain', 6, 11, 90, 14.2], ['cloud', 5, 10, 40, 1.2], ['partly', 3, 9, 10, 0], ['rain', 6, 12, 70, 5.5], ['rain', 7, 12, 80, 8.1], ['cloud', 5, 10, 30, 0.5], ['partly', 3, 8, 10, 0]],
-    wind: 34, windDeg: 225, gust: 58, uv: 0, humidity: 94, dew: 7, sunrise: '07:32', sunset: '16:00', aqi: 18, pressure: 996, trend: 'falling', vis: 4,
+    wind: 34, windDeg: 225, gust: 58, uv: 0, humidity: 94, dew: 7, sunrise: '07:32', sunset: '16:00', aqi: 18, pressure: 996, trend: 'falling', vis: 4, europe: true,
     alerts: [{ title: 'Yellow rain warning', description: 'Until 6 AM. Expect surface water and spray on roads.', severity: 'moderate', ends: '2026-11-24T06:00' }],
   },
   'geo:3413829': {
     now: '2026-11-23T22:41', condition: 'snow', label: 'Light snow', isDay: false, temp: -2, feels: -8,
     days: [['snow', -4, 1, 70, 3.4], ['partly', -5, 0, 20, 0], ['cloud', -3, 2, 30, 0.3], ['snow', -2, 1, 80, 6.1], ['snow', -4, -1, 60, 2.2], ['sun', -7, -2, 0, 0], ['partly', -6, -1, 10, 0]],
-    wind: 28, windDeg: 30, gust: 44, uv: 0, humidity: 82, dew: -5, sunrise: '10:18', sunset: '16:12', aqi: 12, pressure: 1006, trend: 'rising', vis: 6,
+    wind: 28, windDeg: 30, gust: 44, uv: 0, humidity: 82, dew: -5, sunrise: '10:18', sunset: '16:12', aqi: 12, pressure: 1006, trend: 'rising', vis: 6, europe: true,
     alerts: [{ title: 'Aurora forecast: Kp 5', description: 'Strong activity likely in clear breaks, 11 PM to 2 AM.', severity: 'minor' }],
   },
 };
+
+function cloudFor(c: Condition, wave: number): number {
+  const base = c === 'sun' || c === 'moon' ? 12 : c === 'partly' ? 45 : c === 'cloud' ? 85 : 95;
+  return Math.max(0, Math.min(100, Math.round(base + wave * 8)));
+}
 
 const LABELS: Record<Condition, string> = { sun: 'Sunny', moon: 'Clear', cloud: 'Cloudy', partly: 'Partly cloudy', rain: 'Rain', snow: 'Snow', storm: 'Thunderstorm', aurora: 'Clear' };
 
@@ -109,16 +116,52 @@ export function buildSampleForecast(place: Place, s: Sample, fetchedAt: string):
         uvIndex: round1(uv),
         visibilityKm: round1(Math.max(1, s.vis + wave * 2)),
         aqi: d < 5 ? Math.max(5, Math.round(s.aqi + wave * 8)) : null,
+        uvClearSky: round1(uv * 1.15),
+        cloudCover: cloudFor(condition, wave),
+        cloudLow: condition === 'rain' || condition === 'storm' || condition === 'snow' ? Math.round(70 + wave * 20) : condition === 'cloud' ? Math.round(45 + wave * 15) : 0,
+        cloudMid: condition === 'partly' || condition === 'cloud' ? Math.round(30 + wave * 10) : condition === 'rain' ? 60 : 4,
+        cloudHigh: condition === 'sun' || condition === 'moon' ? Math.round(15 + wave * 5) : 40,
+        rainMm: cond === 'snow' ? 0 : mm ? round1(Math.max(0, (mm / 12) * (1 + wave) * 0.75)) : 0,
+        showersMm: cond === 'snow' ? 0 : mm ? round1(Math.max(0, (mm / 12) * (1 + wave) * 0.25)) : 0,
+        snowfallCm: cond === 'snow' && mm ? round1(Math.max(0, (mm / 12) * (1 + wave) * 0.7)) : 0,
+        wind80Kmh: Math.round(Math.max(3, s.wind * (0.8 + 0.3 * wave) * 1.4)),
+        wind120Kmh: Math.round(Math.max(3, s.wind * (0.8 + 0.3 * wave) * 1.6)),
+        wind180Kmh: Math.round(Math.max(3, s.wind * (0.8 + 0.3 * wave) * 1.8)),
       });
     }
   });
 
   const daily: DailyWeather[] = s.days.map(([condition, min, max, pop, mm], i) => {
     const date = addDays(today, i);
+    const daylightSec = (set - rise - i) * 60;
+    const sunny = condition === 'sun' ? 0.85 : condition === 'partly' ? 0.6 : condition === 'cloud' ? 0.25 : 0.1;
     return {
       date, condition, conditionLabel: LABELS[condition], minC: min, maxC: max, precipProbability: pop, precipSumMm: mm,
       windMaxKmh: Math.round(s.wind * 1.2), sunrise: `${date}T${s.sunrise}`, sunset: `${date}T${s.sunset}`,
       uvIndexMax: Math.round(Math.max(...hourly.filter((h) => h.time.startsWith(date)).map((h) => h.uvIndex ?? 0)) * 10) / 10,
+      sunshineSec: Math.round(daylightSec * sunny),
+      daylightSec,
+      precipHours: mm ? Math.min(24, Math.round(mm * 1.3)) : 0,
+      rainSumMm: condition === 'snow' ? 0 : round1(mm * 0.75),
+      showersSumMm: condition === 'snow' ? 0 : round1(mm * 0.25),
+      snowfallSumCm: condition === 'snow' ? round1(mm * 0.7) : 0,
+      gustMaxKmh: Math.round(s.gust * 1.1),
+      windDirDominantDeg: s.windDeg,
+    };
+  });
+
+  // 15-minute rain for the next 3 hours, easing off when it's raining now.
+  const wetNow = s.condition === 'rain' || s.condition === 'storm' || s.condition === 'snow';
+  const nowMin = +s.now.slice(11, 13) * 60 + +s.now.slice(14, 16);
+  const start = Math.floor(nowMin / 15) * 15;
+  const minutely15 = Array.from({ length: 12 }, (_, k) => {
+    const m = start + k * 15;
+    const extraDays = Math.floor(m / 1440);
+    const mm2 = m % 1440;
+    const date = addDays(today, extraDays);
+    return {
+      time: `${date}T${String(Math.floor(mm2 / 60)).padStart(2, '0')}:${String(mm2 % 60).padStart(2, '0')}`,
+      precipMm: wetNow ? Math.round(Math.max(0, 1.2 - k * 0.08) * 100) / 100 : 0,
     };
   });
 
@@ -130,9 +173,14 @@ export function buildSampleForecast(place: Place, s: Sample, fetchedAt: string):
       time: s.now, tempC: s.temp, feelsLikeC: s.feels, condition: s.condition, conditionLabel: s.label, isDay: s.isDay,
       humidity: s.humidity, dewPointC: s.dew, windKmh: s.wind, windGustKmh: s.gust, windDirectionDeg: s.windDeg,
       pressureHpa: s.pressure, pressureTrend: s.trend, visibilityKm: s.vis, uvIndex: s.uv, precipMm: s.condition === 'rain' ? 1.4 : 0, aqi: s.aqi,
+      euAqi: Math.round(s.aqi * 0.7),
+      pollutants: { pm25: round1(s.aqi / 5), pm10: round1(s.aqi / 3), o3: Math.round(s.aqi * 1.6), no2: Math.round(s.aqi / 3), so2: 1, co: 180 },
+      // Pollen data only exists for Europe (as with Open-Meteo).
+      pollen: s.europe ? { alder: 0, birch: 0, grass: 2, mugwort: 0, olive: 0, ragweed: 0 } : null,
     },
     hourly,
     daily,
+    minutely15,
     alerts: s.alerts ?? [],
     source: { name: 'Nimbus sample data' },
     isSample: true,
@@ -156,6 +204,19 @@ export function createMockProvider({ delayMs = 250 }: { delayMs?: number } = {})
       const sample = SAMPLES[place.id];
       if (!sample) throw new WeatherProviderError('not-found', `Sample data only covers the five starter cities, not ${place.name}.`);
       return buildSampleForecast(place, sample, new Date().toISOString());
+    },
+    async getOutlook(place, options) {
+      await wait(options?.signal);
+      const sample = SAMPLES[place.id];
+      if (!sample) throw new WeatherProviderError('not-found', `Sample data only covers the five starter cities, not ${place.name}.`);
+      const week = buildSampleForecast(place, sample, new Date().toISOString()).daily;
+      // Days 8–16 repeat the week's pattern with a gentle warming trend.
+      const extra = Array.from({ length: 9 }, (_, k) => {
+        const src = week[(k + 2) % week.length];
+        const shift = Math.round(k / 3);
+        return { ...src, date: addDays(week[week.length - 1].date, k + 1), minC: src.minC + shift, maxC: src.maxC + shift };
+      });
+      return [...week, ...extra];
     },
     async searchPlaces(query, options) {
       await wait(options?.signal);
