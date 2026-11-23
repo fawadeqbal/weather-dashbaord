@@ -1,0 +1,111 @@
+/* Nimbus — generated from tokens.json */
+:root, [data-theme="clear"] {
+  --ground: #0a1a33;
+  --sky-top: #0a3a86;
+  --sky-mid: #2765b8;
+  --sky-bottom: #6ea6dc;
+  --glass: rgba(4,20,52,0.5);
+  --glass-subtle: rgba(255,255,255,0.08);
+  --glass-highlight: rgba(255,255,255,0.1);
+  --glass-line: rgba(255,255,255,0.14);
+  --glass-line-strong: rgba(255,255,255,0.2);
+  --rule: rgba(255,255,255,0.1);
+  --grid-line: rgba(255,255,255,0.12);
+  --track: rgba(255,255,255,0.14);
+  --scrim-top: rgba(4,10,24,0.28);
+  --scrim-mid: rgba(4,10,24,0.12);
+  --scrim-bottom: rgba(4,10,24,0.5);
+  --card-scrim: rgba(0,0,0,0.5);
+  --ink: #ffffff;
+  --ink-muted: rgba(255,255,255,0.88);
+  --ink-subtle: rgba(255,255,255,0.8);
+  --precip: #aed7ff;
+  --live: #7ef0b0;
+  --scene-clear: #ffcf6b;
+  --scene-dawn: #ffb784;
+  --scene-sun: #ffd66b;
+  --scene-rain: #8ec5ff;
+  --scene-aurora: #7ef0c2;
+  --accent: var(--scene-clear);
+  --on-accent: #0b1a2e;
+  --toggle-on: rgba(255,255,255,0.94);
+  --focus-ring: #ffffff;
+  --icon-sun: #ffd36b;
+  --icon-moon: #e4e9ff;
+  --icon-cloud: #e6edf7;
+  --icon-partly: #ffe3a3;
+  --icon-rain: #a8d4ff;
+  --icon-snow: #ffffff;
+  --icon-storm: #d8c8ff;
+  --icon-aurora: #7ef0c2;
+  --temp-cold: #7cc8ff;
+  --temp-mild: #ffd36b;
+  --temp-warm: #ff9f6b;
+  --level-1: #5fd38d;
+  --level-2: #f6e05e;
+  --level-3: #f6a04d;
+  --level-4: #ef5d5d;
+  --level-5: #b26bff;
+  --shadow-rest: 0 0 0 1px rgba(255,255,255,0.16);
+  --shadow-selected: 0 0 0 2px rgba(255,255,255,0.95), 0 12px 30px rgba(0,0,0,0.35);
+  --shadow-marker: 0 0 0 3px rgba(0,0,0,0.35);
+}
+[data-theme="dawn"] {
+  --sky-top: #2b2a5c;
+  --sky-mid: #a8607f;
+  --sky-bottom: #f4b98a;
+  --glass: rgba(32,16,48,0.58);
+  --accent: var(--scene-dawn);
+}
+[data-theme="sun"] {
+  --sky-top: #0b5d86;
+  --sky-mid: #1c8fb3;
+  --sky-bottom: #8fd3d6;
+  --glass: rgba(2,34,52,0.6);
+  --accent: var(--scene-sun);
+}
+[data-theme="rain"] {
+  --sky-top: #0b1320;
+  --sky-mid: #1a2738;
+  --sky-bottom: #34465c;
+  --glass: rgba(8,14,24,0.52);
+  --accent: var(--scene-rain);
+}
+[data-theme="aurora"] {
+  --sky-top: #050b1c;
+  --sky-mid: #0c1f3a;
+  --sky-bottom: #23385a;
+  --glass: rgba(4,12,28,0.52);
+  --accent: var(--scene-aurora);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-bar: 3px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+  --blur-glass: 24px;
+  --blur-chip: 18px;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+.temp-hero { font-family: var(--font-display); font-size: 136px; line-height: 0.9; font-weight: 300; letter-spacing: -0.05em; }
+.temp-screen { font-family: var(--font-display); font-size: 112px; line-height: 0.9; font-weight: 300; letter-spacing: -0.05em; }
+.metric { font-family: var(--font-display); font-size: 44px; line-height: 1; font-weight: 400; }
+.temp-card { font-family: var(--font-display); font-size: 34px; line-height: 1; font-weight: 400; letter-spacing: -0.02em; }
+.chart-value { font-family: var(--font-display); font-size: 14px; line-height: 1.2; font-weight: 500; }
+.city-title { font-family: var(--font-display); font-size: 30px; line-height: 1.2; font-weight: 500; letter-spacing: -0.01em; }
+.wordmark { font-family: var(--font-display); font-size: 22px; line-height: 1.2; font-weight: 500; letter-spacing: -0.01em; }
+.condition { font-family: var(--font-sans); font-size: 22px; line-height: 1.3; font-weight: 500; }
+.summary { font-family: var(--font-sans); font-size: 15px; line-height: 1.6; font-weight: 400; }
+.body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; }
+.label { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; }
