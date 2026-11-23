@@ -13,21 +13,19 @@ function parts(localIso: string) {
   return { y: +m[1], mo: +m[2], d: +m[3], h: m[4] ? +m[4] : 0, mi: m[5] ? +m[5] : 0 };
 }
 
-/** "2026-11-23T14:41" → "2:41 PM"; "…T14:00" → "2 PM" when `short`. */
-export function formatClock(localIso: string, short = false): string {
-  const { h, mi } = parts(localIso);
-  const suffix = h < 12 ? 'AM' : 'PM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  if (short && mi === 0) return `${h12} ${suffix}`;
-  return `${h12}:${String(mi).padStart(2, '0')} ${suffix}`;
-}
-
 function weekdayIndex(localIso: string): number {
   const { y, mo, d } = parts(localIso);
   return new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
 }
 
 export const weekdayShort = (localIso: string) => WEEKDAYS[weekdayIndex(localIso)];
+export const weekdayLong = (localIso: string) => WEEKDAYS_LONG[weekdayIndex(localIso)];
+
+/** "Nov 24" */
+export function formatShortDate(localIso: string): string {
+  const { mo, d } = parts(localIso);
+  return `${MONTHS[mo - 1].slice(0, 3)} ${d}`;
+}
 
 /** "Monday, November 23" */
 export function formatLongDate(localIso: string): string {

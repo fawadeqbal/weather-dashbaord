@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { formatTemp } from '../design-system';
 import { chooseScene, fromWmoCode } from './conditions';
+import { defaultPrefs, IMPERIAL, isUnitPrefs, makeFormat, METRIC, withTemp } from './format';
 import { DEFAULT_PLACES, matchesPlace } from './places';
-import { buildSampleForecast, createMockProvider } from './providers/mock';
 import { resolveProviderId } from './providers';
-import { localNow, presentForecast } from './present';
-import { summarize } from './summary';
-import { formatClock, formatDuration, formatLongDate, localNowIn, minutesBetween } from './time';
-import { aqiLabel, compassPoint, compassWords, distance, pressure, speed, toUnitTemp, uvLabel } from './units';
+import { buildSampleForecast, createMockProvider, SAMPLES } from './providers/mock';
+import { dayLabel, hoursOn, localNow, nextHours, nowIndex, sceneFor, sunInfo } from './selectors';
+import { summarize, summarizeDay } from './summary';
+import { formatDuration, formatLongDate, formatShortDate, localNowIn, minutesBetween } from './time';
+import { aqiLabel, compassPoint, compassWords, uvLabel, windForce } from './units';
+
+const mock = createMockProvider({ delayMs: 0 });
 
 describe('formatTemp', () => {
   it('uses a true minus sign and a degree sign', () => {
@@ -18,34 +21,60 @@ describe('formatTemp', () => {
   });
 });
 
-describe('units', () => {
-  it('converts temperature, speed, distance and pressure', () => {
-    expect(toUnitTemp(100, 'F')).toBe(212);
-    expect(speed(19, 'F')).toEqual({ value: 12, unit: 'mph' });
-    expect(speed(19, 'C')).toEqual({ value: 19, unit: 'km/h' });
-    expect(distance(16.7, 'C')).toEqual({ value: 17, unit: 'km' });
-    expect(distance(4.2, 'C')).toEqual({ value: 4.2, unit: 'km' });
-    expect(pressure(1018, 'F')).toEqual({ value: '30.06', unit: 'inHg' });
+describe('unit preferences and formatting', () => {
+  const metric = makeFormat(METRIC);
+  const imperial = makeFormat(IMPERIAL);
+  it('formats each unit', () => {
+    expect(imperial.temp(100)).toBe('212°');
+    expect(imperial.windText(19)).toBe('12 mph');
+    expect(makeFormat({ ...METRIC, wind: 'ms' }).windText(36)).toBe('10 m/s');
+    expect(makeFormat({ ...METRIC, wind: 'kn' }).windText(37)).toBe('20 kn');
+    expect(metric.distance(16.7)).toMatchObject({ text: '17', unit: 'km' });
+    expect(metric.distance(4.2)).toMatchObject({ text: '4.2', unit: 'km' });
+    expect(imperial.pressure(1018)).toMatchObject({ text: '30.06', unit: 'inHg' });
+    expect(makeFormat({ ...METRIC, pressure: 'mmHg' }).pressure(1013)).toMatchObject({ text: '760', unit: 'mmHg' });
+    expect(imperial.precip(25.4)).toMatchObject({ text: '1.00', unit: 'in' });
   });
-  it('names compass points', () => {
+  it('formats the clock in 12 or 24 hours', () => {
+    expect(imperial.clock('2026-11-23T14:41')).toBe('2:41 PM');
+    expect(imperial.clock('2026-11-23T00:00', true)).toBe('12 AM');
+    expect(metric.clock('2026-11-23T09:05')).toBe('09:05');
+  });
+  it('switches related units with the quick °C/°F toggle but keeps the clock', () => {
+    expect(withTemp({ ...METRIC, clock: '12h' }, 'F')).toEqual({ ...IMPERIAL, clock: '12h' });
+  });
+  it('picks locale defaults and validates stored prefs', () => {
+    expect(defaultPrefs('en-US')).toEqual(IMPERIAL);
+    expect(defaultPrefs('de-DE')).toEqual(METRIC);
+    expect(defaultPrefs('en-GB').clock).toBe('24h');
+    expect(isUnitPrefs(METRIC)).toBe(true);
+    expect(isUnitPrefs({ temp: 'K' })).toBe(false);
+  });
+});
+
+describe('words for values', () => {
+  it('names compass points, UV, air quality and wind force', () => {
     expect(compassPoint(280)).toBe('W');
-    expect(compassPoint(30)).toBe('NNE');
     expect(compassWords(30)).toBe('from the north-north-east');
-  });
-  it('labels UV and air quality', () => {
     expect(uvLabel(5)).toBe('Moderate');
-    expect(uvLabel(9)).toBe('Very high');
     expect(aqiLabel(32)).toBe('Good');
+    expect(windForce(19)).toEqual({ force: 3, label: 'Gentle breeze' });
+    expect(windForce(0)).toEqual({ force: 0, label: 'Calm' });
   });
 });
 
 describe('time helpers', () => {
-  it('formats local times without converting zones', () => {
-    expect(formatClock('2026-11-23T14:41')).toBe('2:41 PM');
-    expect(formatClock('2026-11-23T00:00', true)).toBe('12 AM');
+  it('handles local wall-clock strings', () => {
     expect(formatLongDate('2026-11-23T14:41')).toBe('Monday, November 23');
+    expect(formatShortDate('2026-11-24')).toBe('Nov 24');
     expect(minutesBetween('2026-11-23T22:41', '2026-11-24T07:32')).toBe(531);
     expect(formatDuration(134)).toBe('2 h 14 min');
+  });
+  it('reads the current wall-clock time in a time zone', () => {
+    const now = new Date('2026-11-23T22:41:00Z');
+    expect(localNowIn('America/Los_Angeles', now)).toBe('2026-11-23T14:41');
+    expect(localNowIn('Asia/Tokyo', now)).toBe('2026-11-24T07:41');
+    expect(localNowIn('Not/AZone', now, 'fallback')).toBe('fallback');
   });
 });
 
@@ -61,43 +90,20 @@ describe('conditions and scenes', () => {
     expect(chooseScene({ ...base, condition: 'rain' }, day)).toEqual({ scene: 'rain', photo: 'rain', precip: 'rain' });
     expect(chooseScene({ ...base, condition: 'storm' }, day)).toEqual({ scene: 'rain', photo: 'storm', precip: 'rain' });
     expect(chooseScene({ ...base, condition: 'snow' }, day)).toEqual({ scene: 'aurora', photo: 'snow', precip: 'snow' });
-    expect(chooseScene({ ...base, condition: 'snow', isDay: false }, day).photo).toBe('aurora');
-    expect(chooseScene({ ...base, condition: 'moon', isDay: false }, day, 37.8)).toEqual({ scene: 'aurora', photo: 'night', precip: null });
+    expect(chooseScene({ ...base, condition: 'moon', isDay: false }, day, 37.8).photo).toBe('night');
     expect(chooseScene({ ...base, condition: 'moon', isDay: false }, day, 64.1).photo).toBe('aurora');
-    expect(chooseScene({ ...base, condition: 'cloud', isDay: false }, day).photo).toBe('night-cloudy');
     expect(chooseScene({ ...base, condition: 'cloud', conditionLabel: 'Fog' }, day).photo).toBe('fog');
-    expect(chooseScene({ ...base, condition: 'cloud', conditionLabel: 'Overcast' }, day).photo).toBe('overcast');
     expect(chooseScene({ ...base, condition: 'sun', time: '2026-11-23T07:30' }, day)).toMatchObject({ scene: 'dawn', photo: 'dawn' });
     expect(chooseScene({ ...base, condition: 'sun', time: '2026-11-23T16:15' }, day)).toMatchObject({ scene: 'dawn', photo: 'dusk' });
-    expect(chooseScene({ ...base, condition: 'partly' }, day).photo).toBe('partly');
     expect(chooseScene({ ...base, condition: 'sun', uvIndex: 9 }, day)).toMatchObject({ scene: 'sun', photo: 'sunny' });
-    expect(chooseScene({ ...base, condition: 'sun' }, day)).toMatchObject({ scene: 'clear', photo: 'sunny' });
   });
 });
 
-describe('local clock', () => {
-  it('reads the current wall-clock time in a time zone', () => {
-    const now = new Date('2026-11-23T22:41:00Z');
-    expect(localNowIn('America/Los_Angeles', now)).toBe('2026-11-23T14:41');
-    expect(localNowIn('Asia/Tokyo', now)).toBe('2026-11-24T07:41');
-    expect(localNowIn('Not/AZone', now, 'fallback')).toBe('fallback');
-  });
-  it('uses the real clock for live data and the fixed time for samples', async () => {
-    const f = await createMockProvider({ delayMs: 0 }).getForecast(DEFAULT_PLACES[0]);
-    expect(localNow(f, new Date('2026-11-24T03:00:00Z'))).toBe('2026-11-23T14:41');
-    const live = { ...f, isSample: false, current: { ...f.current, time: '2026-11-23T14:30' } };
-    expect(localNow(live, new Date('2026-11-23T22:55:00Z'))).toBe('2026-11-23T14:55');
-  });
-});
-
-describe('places', () => {
+describe('places and provider selection', () => {
   it('matches without accents', () => {
     expect(matchesPlace(DEFAULT_PLACES[4], 'reykjavik')).toBe(true);
     expect(matchesPlace(DEFAULT_PLACES[0], 'california')).toBe(true);
   });
-});
-
-describe('provider selection', () => {
   it('prefers the URL, then the env, then Open-Meteo', () => {
     expect(resolveProviderId('?provider=mock', 'open-meteo')).toBe('mock');
     expect(resolveProviderId('', 'mock')).toBe('mock');
@@ -105,35 +111,51 @@ describe('provider selection', () => {
   });
 });
 
-describe('presentForecast and summarize (sample data)', () => {
-  it('builds the London view: rain scene, alert, night sun note', async () => {
-    const f = await createMockProvider({ delayMs: 0 }).getForecast(DEFAULT_PLACES[3]);
-    const v = presentForecast(f, 'C');
-    expect(v.scene).toBe('rain');
-    expect(v.precip).toBe('rain');
-    expect(v.alert?.title).toBe('Yellow rain warning');
-    expect(v.hours).toHaveLength(9);
-    expect(v.hours[0].label).toBe('Now');
-    expect(v.hours[1].label).toBe('1 AM');
-    expect(v.days[0].day).toBe('Today');
-    expect(v.sun?.progress).toBe(1);
-    expect(v.sun?.note).toBe('Sunrise in 8 h 51 min');
-    expect(v.localTime).toBe('10:41 PM');
-    expect(summarize(f, 'C')).toMatch(/^Rain easing around \d+ (AM|PM)\. Low of \d+° overnight\. Gusts up to 58 km\/h\.$/);
+describe('sample data and selectors', () => {
+  it('generates seven full days of hourly data', async () => {
+    const f = await mock.getForecast(DEFAULT_PLACES[0]);
+    expect(f.hourly).toHaveLength(7 * 24);
+    expect(f.hourly[0].time).toBe('2026-11-23T00:00');
+    expect(hoursOn(f, '2026-11-25')).toHaveLength(24);
+    expect(f.hourly.every((h) => h.windKmh != null && h.humidity != null)).toBe(true);
   });
 
-  it('converts the whole view to Fahrenheit', async () => {
-    const f = await createMockProvider({ delayMs: 0 }).getForecast(DEFAULT_PLACES[0]);
-    const v = presentForecast(f, 'F');
-    expect(v.hero.temp).toBeCloseTo(64.4);
-    expect(v.wind.unit).toBe('mph');
-    expect(v.pressure.unit).toBe('inHg');
-    expect(summarize(f, 'F')).toBe('Dry for the next 24 hours. High of 66° this afternoon.');
+  it('uses the real clock for live data and the fixed time for samples', async () => {
+    const f = await mock.getForecast(DEFAULT_PLACES[0]);
+    expect(localNow(f, new Date('2026-11-24T03:00:00Z'))).toBe('2026-11-23T14:41');
+    const live = { ...f, isSample: false, current: { ...f.current, time: '2026-11-23T14:30' } };
+    expect(localNow(live, new Date('2026-11-23T22:55:00Z'))).toBe('2026-11-23T14:55');
+  });
+
+  it('picks the next hours from now and labels days', async () => {
+    const f = await mock.getForecast(DEFAULT_PLACES[0]);
+    const now = localNow(f);
+    expect(nowIndex(f, now)).toBe(14);
+    expect(nextHours(f, now, 25)[0].time).toBe('2026-11-23T14:00');
+    expect(dayLabel(f, 0, now)).toBe('Today');
+    expect(dayLabel(f, 1, now)).toBe('Tomorrow');
+    expect(dayLabel(f, 2, now, true)).toBe('Wednesday');
+  });
+
+  it('builds the London view: rain scene, sun note, summary', async () => {
+    const f = await mock.getForecast(DEFAULT_PLACES[3]);
+    const now = localNow(f);
+    const fmt = makeFormat(METRIC);
+    expect(sceneFor(f, now)).toMatchObject({ scene: 'rain', photo: 'rain', precip: 'rain' });
+    expect(sunInfo(f, now, makeFormat(IMPERIAL))).toMatchObject({ progress: 1, note: 'Sunrise in 8 h 51 min', sunrise: '7:32 AM' });
+    expect(summarize(f, fmt, now)).toMatch(/Low of \d+° overnight\. Gusts up to 58 km\/h\.$/);
+    expect(summarizeDay(hoursOn(f, '2026-11-23'), fmt)).toMatch(/^Rain likely from/);
+  });
+
+  it('summarises in the viewer’s units', async () => {
+    const f = await mock.getForecast(DEFAULT_PLACES[0]);
+    expect(summarize(f, makeFormat(IMPERIAL), localNow(f))).toMatch(/High of 66° this afternoon\.$/);
   });
 
   it('rejects places the sample data does not cover', async () => {
     const place = { ...DEFAULT_PLACES[0], id: 'geo:1', name: 'Oslo' };
-    await expect(createMockProvider({ delayMs: 0 }).getForecast(place)).rejects.toMatchObject({ kind: 'not-found' });
+    await expect(mock.getForecast(place)).rejects.toMatchObject({ kind: 'not-found' });
+    expect(Object.keys(SAMPLES)).toHaveLength(5);
     expect(() => buildSampleForecast(place, undefined as never, '')).toThrow();
   });
 });

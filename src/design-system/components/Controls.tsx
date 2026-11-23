@@ -18,16 +18,18 @@ export interface CityCardProps {
   scene?: Scene;
   selected?: boolean;
   onSelect?: () => void;
+  /** Render as a link instead of a toggle button. */
+  href?: string;
   className?: string;
 }
 
 /** A saved city as a button over its own sky photo. */
-export function CityCard({ name, localTime, condition, conditionLabel, temp, high, low, photo, photoPosition, scene, selected, onSelect, className }: CityCardProps) {
+export function CityCard({ name, localTime, condition, conditionLabel, temp, high, low, photo, photoPosition, scene, selected, onSelect, href, className }: CityCardProps) {
   const hilo: string[] = [];
   if (high !== undefined) hilo.push(`H ${formatTemp(high)}`);
   if (low !== undefined) hilo.push(`L ${formatTemp(low)}`);
-  return (
-    <button type="button" className={cx('nb-card', className)} aria-pressed={!!selected} onClick={onSelect} data-theme={scene}>
+  const body = (
+    <>
       {photo ? <img className="nb-card-photo" src={photo} alt="" aria-hidden style={{ objectPosition: photoPosition ?? 'center' }} /> : null}
       <span className="nb-card-scrim" aria-hidden />
       <span className="nb-card-main">
@@ -42,6 +44,18 @@ export function CityCard({ name, localTime, condition, conditionLabel, temp, hig
         <span className="nb-card-temp">{formatTemp(temp)}</span>
         {hilo.length ? <span className="nb-card-hilo">{hilo.join('  ')}</span> : null}
       </span>
+    </>
+  );
+  if (href) {
+    return (
+      <a className={cx('nb-card', selected && 'nb-card-selected', className)} href={href} data-theme={scene} aria-current={selected ? 'page' : undefined}>
+        {body}
+      </a>
+    );
+  }
+  return (
+    <button type="button" className={cx('nb-card', className)} aria-pressed={!!selected} onClick={onSelect} data-theme={scene}>
+      {body}
     </button>
   );
 }

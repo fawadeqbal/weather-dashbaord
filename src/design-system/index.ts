@@ -7,5 +7,9 @@ export { SkyBackdrop, GlassPanel, type Scene, type SkyLayer, type SkyBackdropPro
 export { CurrentConditions, HourlyChart, DailyForecast, type CurrentConditionsProps, type HourPoint, type HourlyChartProps, type DayForecast, type Stat } from './components/Forecast';
 export { MetricTile, WindCompass, RangeMeter, SunArc, PressureGauge, type MetricTileProps, type RangeMeterProps } from './components/Metrics';
 export { CityCard, SearchField, UnitToggle, AlertBanner, IconButton, type CityCardProps, type SearchFieldProps, type Unit, type UnitToggleProps, type IconButtonProps } from './components/Controls';
+export { TrendChart, type TrendPoint, type TrendChartProps } from './components/TrendChart';
+export { TabBar, SegmentedControl, SectionHeader, BackLink, type NavItem, type SegmentOption } from './components/Navigation';
+export { StatTile, HourStrip, AnimatedNumber, type StatTileProps, type HourCell } from './components/Tiles';
+export { Toast, type ToastProps } from './components/Toast';
 export { formatTemp, cx } from './format';
 export { ICON_PATHS, type IconName, type Condition } from './icons';

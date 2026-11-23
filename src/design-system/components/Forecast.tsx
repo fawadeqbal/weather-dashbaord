@@ -3,6 +3,7 @@ import type { Condition } from '../icons';
 import { cx, formatTemp, round2 } from '../format';
 import { GlassPanel } from './Surfaces';
 import { WeatherIcon } from './WeatherIcon';
+import { SectionHeader } from './Navigation';
 
 export interface Stat {
   label: string;
@@ -153,21 +154,26 @@ export interface DayForecast {
   pop?: number | null;
   low: number;
   high: number;
+  /** Makes the row a link, e.g. to the day's detail page. */
+  href?: string;
+  /** Shown under the day name, e.g. "Nov 24". */
+  sub?: string;
 }
 
 /** One row per day with condition, precipitation chance, low, high and a range bar on the week's scale. */
-export function DailyForecast({ days, title = '7-day forecast' }: { days: DayForecast[]; title?: string }) {
+export function DailyForecast({ days, title = '7-day forecast', action }: { days: DayForecast[]; title?: string; action?: { href: string; label: string } }) {
   if (!days.length) return null;
   const lo = Math.min(...days.map((d) => d.low));
   const hi = Math.max(...days.map((d) => d.high));
   const range = Math.max(hi - lo, 1);
   return (
     <GlassPanel className="nb-daily" aria-label={title}>
-      <h2 className="nb-label">{title}</h2>
+      <SectionHeader title={title} action={action} />
       <ul className="nb-days">
-        {days.map((d) => (
-          <li key={d.day} className="nb-day">
-            <span className="nb-day-name">{d.day}</span>
+        {days.map((d) => {
+          const cells = (
+            <>
+            <span className="nb-day-name">{d.day}{d.sub ? <span className="nb-day-sub">{d.sub}</span> : null}</span>
             <WeatherIcon condition={d.condition} label={d.conditionLabel} />
             <span className="nb-pop">{d.pop ? `${d.pop}%` : ' '}</span>
             <span className="nb-day-lo">{formatTemp(d.low)}</span>
@@ -178,8 +184,14 @@ export function DailyForecast({ days, title = '7-day forecast' }: { days: DayFor
               />
             </span>
             <span className="nb-day-hi">{formatTemp(d.high)}</span>
-          </li>
-        ))}
+            </>
+          );
+          return (
+            <li key={d.day} className="nb-day-item">
+              {d.href ? <a className="nb-day nb-day-link" href={d.href}>{cells}<WeatherIcon condition="chevron-right" size={16} strokeWidth={2} tinted={false} className="nb-day-chev" /></a> : <div className="nb-day">{cells}</div>}
+            </li>
+          );
+        })}
       </ul>
     </GlassPanel>
   );
