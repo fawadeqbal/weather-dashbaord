@@ -3,11 +3,11 @@ import { GlassPanel, SegmentedControl, WeatherIcon } from '../../design-system';
 import { IMPERIAL, METRIC, type UnitPrefs } from '../../weather/format';
 import { DEFAULT_PLACES } from '../../weather/places';
 import { availableProviders } from '../../weather/providers';
-import { useApp } from '../store';
+import { useApp, type StartOn } from '../store';
 import { PageHeader } from './common';
 
 export function SettingsPage() {
-  const { prefs, setPrefs, provider, refreshAll, setPlaces, setSelectedId, showToast } = useApp();
+  const { prefs, setPrefs, provider, refreshAll, setPlaces, setSelectedId, showToast, startOn, setStartOn, places } = useApp();
   const [confirmReset, setConfirmReset] = useState(false);
   const set = <K extends keyof UnitPrefs>(k: K) => (v: UnitPrefs[K]) => setPrefs({ ...prefs, [k]: v });
   const preset = sameAs(prefs, METRIC) ? 'metric' : sameAs(prefs, IMPERIAL) ? 'imperial' : 'custom';
@@ -46,6 +46,15 @@ export function SettingsPage() {
           </Row>
           <Row label="Time">
             <SegmentedControl label="Time format" size="sm" value={prefs.clock} onChange={set('clock')} options={[{ value: '12h', label: '12-hour' }, { value: '24h', label: '24-hour' }]} />
+          </Row>
+        </ul>
+      </GlassPanel>
+
+      <GlassPanel aria-labelledby="start-h" className="settings-panel">
+        <h2 id="start-h" className="settings-title">Start-up</h2>
+        <ul className="settings-list">
+          <Row label="Open the app on" note={startOn === 'first' ? `Always ${places[0]?.name ?? 'the first city'}. Reorder cities in Locations to change it.` : 'Whichever city you looked at last.'}>
+            <SegmentedControl<StartOn> label="Open the app on" size="sm" value={startOn} onChange={setStartOn} options={[{ value: 'last', label: 'Last viewed' }, { value: 'first', label: 'First city' }]} />
           </Row>
         </ul>
       </GlassPanel>

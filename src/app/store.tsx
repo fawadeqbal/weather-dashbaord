@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { defaultPrefs, isUnitPrefs, makeFormat, type Format, type UnitPrefs } from '../weather/format';
 import { useForecasts, useMinuteClock, useStoredState, type ForecastState } from '../weather/hooks';
 import { DEFAULT_PLACES } from '../weather/places';
@@ -11,6 +11,9 @@ export interface ToastMessage {
   action?: { label: string; onClick: () => void };
 }
 
+/** Which city Nimbus opens on: the one viewed last, or the first in the list. */
+export type StartOn = 'last' | 'first';
+
 interface AppState {
   provider: WeatherProvider;
   places: Place[];
@@ -19,6 +22,8 @@ interface AppState {
   setSelectedId: (id: string) => void;
   prefs: UnitPrefs;
   setPrefs: (p: UnitPrefs) => void;
+  startOn: StartOn;
+  setStartOn: (s: StartOn) => void;
   fmt: Format;
   states: Record<string, ForecastState>;
   reload: (p: Place) => void;
@@ -40,10 +45,17 @@ export function AppProvider({ provider, children }: { provider: WeatherProvider;
   const [places, setPlaces] = useStoredState<Place[]>('nimbus.places', DEFAULT_PLACES, isPlaceList);
   const [selectedId, setSelectedId] = useStoredState<string>('nimbus.selected', DEFAULT_PLACES[0].id, isString);
   const [prefs, setPrefs] = useStoredState<UnitPrefs>('nimbus.units', defaultPrefs(), isUnitPrefs);
+  const [startOn, setStartOn] = useStoredState<StartOn>('nimbus.startOn', 'last', (v): v is StartOn => v === 'last' || v === 'first');
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const now = useMinuteClock();
   const { states, reload, refreshAll } = useForecasts(provider, places);
   const fmt = useMemo(() => makeFormat(prefs), [prefs]);
+
+  // "Open the app on: first city": pick it once, at start-up.
+  useEffect(() => {
+    if (startOn === 'first' && places[0]) setSelectedId(places[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showToast = useCallback((message: string, action?: ToastMessage['action']) => setToast({ id: Date.now(), message, action }), []);
   const dismissToast = useCallback(() => setToast(null), []);
@@ -56,6 +68,8 @@ export function AppProvider({ provider, children }: { provider: WeatherProvider;
     setSelectedId,
     prefs,
     setPrefs,
+    startOn,
+    setStartOn,
     fmt,
     states,
     reload,

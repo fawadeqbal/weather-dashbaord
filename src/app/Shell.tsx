@@ -1,13 +1,18 @@
 import { useEffect, useRef } from 'react';
-import { IconButton, SegmentedControl, SkyBackdrop, TabBar, Toast, type NavItem } from '../design-system';
+import { IconButton, SegmentedControl, SkyBackdrop, TabBar, Toast, WeatherIcon, type NavItem } from '../design-system';
 import { withTemp, type TempUnit } from '../weather/format';
 import { ALL_PHOTOS, PHOTOS } from '../weather/scenes';
 import { localNow, sceneFor } from '../weather/selectors';
+import { useOnline } from '../weather/hooks';
 import { formatUpdated } from '../weather/time';
+import { AlertPage } from './pages/AlertPage';
+import { ComparePage } from './pages/ComparePage';
 import { DayPage } from './pages/DayPage';
 import { HourlyPage } from './pages/HourlyPage';
 import { LocationsPage } from './pages/LocationsPage';
 import { METRIC_LABEL, MetricPage } from './pages/MetricPage';
+import { NowcastPage } from './pages/NowcastPage';
+import { OutlookPage } from './pages/OutlookPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TodayPage } from './pages/TodayPage';
 import { href, routeKey, useRoute, type Route } from './router';
@@ -24,6 +29,7 @@ export function Shell() {
   const scene = f ? sceneFor(f, localNow(f, now)) : null;
   const busy = Object.values(states).some((s) => s.status === 'loading');
   const key = routeKey(route);
+  const online = useOnline();
 
   // On each new screen: scroll to the top and move focus to its heading.
   const first = useRef(true);
@@ -40,10 +46,10 @@ export function Shell() {
     document.title = `${titleFor(route, active?.name)} · Nimbus`;
   }, [route, active?.name]);
 
-  const onWeather = route.name === 'today' || route.name === 'hourly' || route.name === 'day' || route.name === 'metric';
+  const onWeather = 'placeId' in route || route.name === 'today';
   const nav: NavItem[] = [
     { href: href.today(selectedId || undefined), label: 'Today', icon: 'today', active: onWeather },
-    { href: href.locations(), label: 'Locations', icon: 'list', active: route.name === 'locations' },
+    { href: href.locations(), label: 'Locations', icon: 'list', active: route.name === 'locations' || route.name === 'compare' },
     { href: href.settings(), label: 'Settings', icon: 'settings', active: route.name === 'settings' },
   ];
 
@@ -88,6 +94,13 @@ export function Shell() {
         </div>
       </header>
 
+      {!online ? (
+        <div className="offline-bar" role="status">
+          <WeatherIcon condition="info" size={16} strokeWidth={2} tinted={false} />
+          <span>You’re offline. Showing the last forecast{f ? ` (${formatUpdated(f.fetchedAt, now).toLowerCase()})` : ''}. It refreshes when you reconnect.</span>
+        </div>
+      ) : null}
+
       <main className="page" key={key}>
         <Page route={route} />
       </main>
@@ -112,6 +125,14 @@ function Page({ route }: { route: Route }) {
       return <DayPage placeId={route.placeId} index={route.index} />;
     case 'metric':
       return <MetricPage placeId={route.placeId} metric={route.metric} />;
+    case 'outlook':
+      return <OutlookPage placeId={route.placeId} />;
+    case 'nowcast':
+      return <NowcastPage placeId={route.placeId} />;
+    case 'alert':
+      return <AlertPage placeId={route.placeId} />;
+    case 'compare':
+      return <ComparePage />;
     case 'locations':
       return <LocationsPage />;
     case 'settings':
@@ -138,6 +159,14 @@ function titleFor(route: Route, placeName?: string): string {
       return `Day · ${p}`;
     case 'metric':
       return `${METRIC_LABEL[route.metric].title} · ${p}`;
+    case 'outlook':
+      return `16-day outlook · ${p}`;
+    case 'nowcast':
+      return `Next 2 hours · ${p}`;
+    case 'alert':
+      return `Warnings · ${p}`;
+    case 'compare':
+      return 'Compare cities';
     case 'locations':
       return 'Locations';
     case 'settings':

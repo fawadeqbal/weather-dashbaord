@@ -6,7 +6,7 @@ import { uvLabel } from '../../weather/units';
 import { href } from '../router';
 import { pointsFor } from '../series';
 import { useApp } from '../store';
-import { ForecastGate, PageHeader, usePlaceForecast } from './common';
+import { Fact, ForecastGate, PageHeader, usePlaceForecast } from './common';
 
 export function DayPage({ placeId, index }: { placeId: string; index: number }) {
   const pf = usePlaceForecast(placeId);
@@ -62,11 +62,13 @@ export function DayPage({ placeId, index }: { placeId: string; index: number }) 
                 </div>
               </GlassPanel>
 
-              <div className="fact-grid">
+              <div className="fact-grid fact-grid-3">
                 <Fact icon="umbrella" label="Precipitation" value={day.precipProbability != null ? `${day.precipProbability}%` : '—'} note={precipNote(precip)} />
                 <Fact icon="wind" label="Max wind" value={day.windMaxKmh != null ? fmt.windText(day.windMaxKmh) : '—'} note="Sustained, at 10 m" />
                 <Fact icon="sun" label="UV index max" value={day.uvIndexMax != null ? String(Math.round(day.uvIndexMax)) : '—'} note={day.uvIndexMax != null ? uvLabel(day.uvIndexMax) : 'Not available'} />
                 <Fact icon="sunrise" label="Daylight" value={sun.daylightMinutes != null ? formatDuration(sun.daylightMinutes) : '—'} note={sun.sunrise && sun.sunset ? `${sun.sunrise} – ${sun.sunset}` : sun.note} />
+                <Fact icon="sun" label="Sunshine" value={day.sunshineSec != null ? formatDuration(day.sunshineSec / 60) : '—'} note={day.sunshineSec != null && sun.daylightMinutes ? `${Math.round((day.sunshineSec / 60 / sun.daylightMinutes) * 100)}% of daylight` : 'Not available'} />
+                <Fact icon="umbrella" label="Wet hours" value={day.precipHours != null ? `${day.precipHours} h` : '—'} note={day.precipHours ? 'Hours with rain or snow' : day.precipHours === 0 ? 'Dry all day' : 'Not available'} />
               </div>
 
               {visible.length > 1 ? (
@@ -130,17 +132,4 @@ export function DayPage({ placeId, index }: { placeId: string; index: number }) 
 function precipNote(m: { value: number; text: string; unit: string } | null): string {
   if (!m) return 'Chance';
   return m.value > 0 ? `${m.text} ${m.unit} expected` : 'None expected';
-}
-
-function Fact({ icon, label, value, note }: { icon: Parameters<typeof WeatherIcon>[0]['condition']; label: string; value: string; note: string }) {
-  return (
-    <GlassPanel as="article" padding="md" radius="xl" className="fact">
-      <h2 className="nb-label">
-        <WeatherIcon condition={icon} size={15} strokeWidth={1.8} tinted={false} />
-        {label}
-      </h2>
-      <p className="fact-value">{value}</p>
-      <p className="fact-note">{note}</p>
-    </GlassPanel>
-  );
 }

@@ -161,16 +161,31 @@ export interface DayForecast {
 }
 
 /** One row per day with condition, precipitation chance, low, high and a range bar on the week's scale. */
-export function DailyForecast({ days, title = '7-day forecast', action }: { days: DayForecast[]; title?: string; action?: { href: string; label: string } }) {
+export function DailyForecast({
+  days,
+  title = '7-day forecast',
+  action,
+  scale,
+  note,
+}: {
+  days: DayForecast[];
+  title?: string;
+  action?: { href: string; label: string };
+  /** Shared low/high for the range bars, so several lists compare by eye. */
+  scale?: { low: number; high: number };
+  /** Short line under the title, e.g. a confidence note. */
+  note?: string;
+}) {
   if (!days.length) return null;
-  const lo = Math.min(...days.map((d) => d.low));
-  const hi = Math.max(...days.map((d) => d.high));
+  const lo = scale?.low ?? Math.min(...days.map((d) => d.low));
+  const hi = scale?.high ?? Math.max(...days.map((d) => d.high));
   const range = Math.max(hi - lo, 1);
   return (
     <GlassPanel className="nb-daily" aria-label={title}>
       <SectionHeader title={title} action={action} />
+      {note ? <p className="nb-daily-note">{note}</p> : null}
       <ul className="nb-days">
-        {days.map((d) => {
+        {days.map((d, i) => {
           const cells = (
             <>
             <span className="nb-day-name">{d.day}{d.sub ? <span className="nb-day-sub">{d.sub}</span> : null}</span>
@@ -187,7 +202,7 @@ export function DailyForecast({ days, title = '7-day forecast', action }: { days
             </>
           );
           return (
-            <li key={d.day} className="nb-day-item">
+            <li key={`${i}-${d.day}`} className="nb-day-item">
               {d.href ? <a className="nb-day nb-day-link" href={d.href}>{cells}<WeatherIcon condition="chevron-right" size={16} strokeWidth={2} tinted={false} className="nb-day-chev" /></a> : <div className="nb-day">{cells}</div>}
             </li>
           );

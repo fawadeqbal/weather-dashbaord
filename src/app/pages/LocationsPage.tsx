@@ -9,7 +9,8 @@ import { useApp } from '../store';
 import { PageHeader } from './common';
 
 export function LocationsPage() {
-  const { places, setPlaces, states, provider, showToast, selectedId, setSelectedId } = useApp();
+  const { places, setPlaces, states, provider, showToast, selectedId, setSelectedId, startOn } = useApp();
+  const [locError, setLocError] = useState<'denied' | 'failed' | 'unsupported' | null>(null);
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(false);
   const [announce, setAnnounce] = useState('');
@@ -56,9 +57,10 @@ export function LocationsPage() {
 
   const useMyLocation = () => {
     if (!('geolocation' in navigator)) {
-      showToast('This browser cannot share your location.');
+      setLocError('unsupported');
       return;
     }
+    setLocError(null);
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -75,7 +77,7 @@ export function LocationsPage() {
       },
       (err) => {
         setLocating(false);
-        showToast(err.code === err.PERMISSION_DENIED ? 'Location access is turned off for this site.' : 'Could not find your location. Try again.');
+        setLocError(err.code === err.PERMISSION_DENIED ? 'denied' : 'failed');
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60 * 1000 },
     );
@@ -85,13 +87,21 @@ export function LocationsPage() {
     <div className="locations">
       <PageHeader
         title="Locations"
-        subtitle={`${places.length} saved · ${editing ? 'Drag or use the arrow keys to reorder' : 'The first city opens when you start Nimbus'}`}
+        subtitle={`${places.length} saved · ${editing ? 'Drag or use the arrow keys to reorder' : startOn === 'first' ? 'The first city opens when you start Nimbus' : 'Nimbus reopens on the city you viewed last'}`}
         actions={
           places.length ? (
+            <>
+            {places.length > 1 && !editing ? (
+              <a className="nb-text-btn" href={href.compare()}>
+                <WeatherIcon condition="list" size={16} strokeWidth={2} tinted={false} />
+                Compare
+              </a>
+            ) : null}
             <button type="button" className={cx('nb-text-btn', editing && 'nb-text-btn-on')} onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
               <WeatherIcon condition={editing ? 'check' : 'edit'} size={16} strokeWidth={2} tinted={false} />
               {editing ? 'Done' : 'Edit'}
             </button>
+            </>
           ) : null
         }
       />
@@ -130,6 +140,8 @@ export function LocationsPage() {
         </GlassPanel>
       ) : null}
 
+      {locError && !editing ? <LocationHelp kind={locError} onRetry={useMyLocation} onClose={() => setLocError(null)} /> : null}
+
       {places.length === 0 ? (
         <GlassPanel className="empty-panel">
           <WeatherIcon condition="list" size={28} tinted={false} />
@@ -146,6 +158,12 @@ export function LocationsPage() {
           {visible.map((p, i) => (
             <li key={p.id} className="loc-item" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
               <PlaceCard place={p} state={states[p.id]} selected={p.id === selectedId} />
+              {states[p.id]?.forecast?.alerts.length ? (
+                <a className="loc-warn" href={href.alert(p.id)} aria-label={`${p.name}: ${states[p.id]!.forecast!.alerts[0].title}`}>
+                  <WeatherIcon condition="alert" size={14} strokeWidth={2} tinted={false} />
+                  Warning
+                </a>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -184,7 +202,7 @@ function PlaceCard({ place, state, selected }: { place: Place; state?: ForecastS
 
 /** Reorderable list: drag the handle, or focus it and press the arrow keys. */
 function EditList({ places, states, onMove, onRemove }: { places: Place[]; states: Record<string, ForecastState>; onMove: (from: number, to: number) => void; onRemove: (p: Place) => void }) {
-  const { fmt, now } = useApp();
+  const { fmt, now, startOn } = useApp();
   const listRef = useRef<HTMLOListElement>(null);
   const [drag, setDrag] = useState<{ id: string; startY: number; dy: number; rowH: number; from: number } | null>(null);
 
@@ -235,7 +253,7 @@ function EditList({ places, states, onMove, onRemove }: { places: Place[]; state
             <span className="loc-edit-text">
               <span className="loc-edit-name">
                 {p.name}
-                {i === 0 ? <span className="loc-badge">Opens first</span> : null}
+                {i === 0 && startOn === 'first' ? <span className="loc-badge">Opens first</span> : null}
               </span>
               <span className="loc-edit-where">{[p.region, p.country].filter(Boolean).join(', ')}</span>
             </span>
@@ -256,5 +274,38 @@ function EditList({ places, states, onMove, onRemove }: { places: Place[]; state
         );
       })}
     </ol>
+  );
+}
+
+/** Says why "Use my current location" failed and how to fix it, with a retry in reach. */
+function LocationHelp({ kind, onRetry, onClose }: { kind: 'denied' | 'failed' | 'unsupported'; onRetry: () => void; onClose: () => void }) {
+  return (
+    <GlassPanel className="loc-help" role="alert" aria-labelledby="loc-help-h">
+      <div className="loc-help-head">
+        <WeatherIcon condition="locate" size={22} strokeWidth={1.8} tinted={false} />
+        <h2 id="loc-help-h" className="settings-title">
+          {kind === 'denied' ? 'Location is turned off for Nimbus' : kind === 'unsupported' ? 'This browser can’t share your location' : 'Couldn’t find your location'}
+        </h2>
+        <button type="button" className="nb-icon-btn loc-mini" onClick={onClose} aria-label="Close">
+          <WeatherIcon condition="close" size={16} strokeWidth={2} tinted={false} />
+        </button>
+      </div>
+      {kind === 'denied' ? (
+        <ol className="loc-help-steps">
+          <li>Click the lock or settings icon next to the address bar.</li>
+          <li>Set <strong>Location</strong> to <strong>Allow</strong> for this site.</li>
+          <li>Come back here and press <strong>Try again</strong>.</li>
+        </ol>
+      ) : (
+        <p className="empty-text">
+          {kind === 'unsupported' ? 'Search for your city above instead; it works just as well.' : 'Your device didn’t answer in time. Check that location services are on, then try again, or search for your city above.'}
+        </p>
+      )}
+      {kind !== 'unsupported' ? (
+        <button type="button" className="nb-text-btn nb-text-btn-on" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+    </GlassPanel>
   );
 }

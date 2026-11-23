@@ -14,6 +14,7 @@ import {
 } from '../../design-system';
 import type { Format } from '../../weather/format';
 import { dayIndexOf, dayLabel, nextHours, sunInfo, todayRange } from '../../weather/selectors';
+import { nowcastSteps, nowcastSummary } from '../../weather/insights';
 import { summarize } from '../../weather/summary';
 import { formatShortDate, weekdayLong } from '../../weather/time';
 import type { Forecast, Place } from '../../weather/types';
@@ -89,7 +90,9 @@ function CityArrow({ place, dir }: { place?: Place; dir: 'prev' | 'next' }) {
 }
 
 function TodayBody({ f, nowLocal, place, swipeHandlers }: { f: Forecast; nowLocal: string; place: Place; swipeHandlers: Record<string, (e: React.PointerEvent) => void> }) {
-  const { fmt } = useApp();
+  const { fmt, provider } = useApp();
+  const soon = nowcastSteps(f, nowLocal);
+  const rainSoon = soon.steps.slice(0, 8).some((s) => s.intensity !== 'none');
   const range = todayRange(f, nowLocal);
   const hours = nextHours(f, nowLocal, 25);
   const firstDay = dayIndexOf(f, nowLocal);
@@ -107,9 +110,26 @@ function TodayBody({ f, nowLocal, place, swipeHandlers }: { f: Forecast; nowLoca
   return (
     <>
       {alert ? (
-        <AlertBanner title={alert.title} icon={/aurora/i.test(alert.title) ? 'aurora' : 'alert'}>
-          {alert.description}
-        </AlertBanner>
+        <a className="alert-link" href={href.alert(place.id)}>
+          <AlertBanner title={alert.title} icon={/aurora/i.test(alert.title) ? 'aurora' : 'alert'}>
+            {alert.description}
+          </AlertBanner>
+          <span className="alert-link-more">
+            {f.alerts.length > 1 ? `${f.alerts.length} warnings` : 'What to do'}
+            <WeatherIcon condition="chevron-right" size={16} strokeWidth={2} tinted={false} />
+          </span>
+        </a>
+      ) : null}
+
+      {rainSoon ? (
+        <a className="soon-card nb-glass nb-r-xl" href={href.nowcast(place.id)}>
+          <WeatherIcon condition={f.current.condition === 'snow' ? 'snow' : 'rain'} size={22} strokeWidth={1.7} />
+          <span className="soon-text">{nowcastSummary(soon.steps, fmt, f.current.condition === 'snow' ? 'snow' : 'rain')}</span>
+          <span className="soon-more">
+            Next 2 hours
+            <WeatherIcon condition="chevron-right" size={16} strokeWidth={2} tinted={false} />
+          </span>
+        </a>
       ) : null}
 
       <div className="today-grid">
@@ -148,7 +168,7 @@ function TodayBody({ f, nowLocal, place, swipeHandlers }: { f: Forecast; nowLoca
         </GlassPanel>
 
         <div className="today-daily">
-          <DailyForecast days={days} title={`${days.length}-day forecast`} />
+          <DailyForecast days={days} title={`${days.length}-day forecast`} action={provider.getOutlook ? { href: href.outlook(place.id), label: '16 days' } : undefined} />
         </div>
       </div>
 

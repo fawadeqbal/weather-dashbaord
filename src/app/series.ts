@@ -1,9 +1,10 @@
 import type { TrendPoint } from '../design-system';
 import type { Format } from '../weather/format';
 import type { HourlyWeather } from '../weather/types';
+import { cloudWord } from '../weather/insights';
 import { aqiLabel, compassPoint, uvLabel } from '../weather/units';
 
-export type SeriesKey = 'temp' | 'feels' | 'precip' | 'wind' | 'humidity' | 'uv' | 'pressure' | 'aqi' | 'visibility';
+export type SeriesKey = 'temp' | 'feels' | 'precip' | 'wind' | 'humidity' | 'uv' | 'pressure' | 'aqi' | 'visibility' | 'clouds';
 
 interface SeriesDef {
   label: string;
@@ -74,6 +75,13 @@ export const SERIES: Record<SeriesKey, SeriesDef> = {
     kind: 'bar',
     min: 0,
     point: (h) => ({ value: h.aqi, display: h.aqi != null ? String(Math.round(h.aqi)) : '—', detail: h.aqi != null ? aqiLabel(h.aqi) : undefined }),
+  },
+  clouds: {
+    label: 'Cloud cover',
+    kind: 'line',
+    min: 0,
+    max: 100,
+    point: (h) => ({ value: h.cloudCover ?? null, display: h.cloudCover != null ? `${Math.round(h.cloudCover)}%` : '—', detail: h.cloudCover != null ? cloudWord(h.cloudCover) : undefined }),
   },
   visibility: {
     label: 'Visibility',

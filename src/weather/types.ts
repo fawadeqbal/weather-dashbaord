@@ -50,6 +50,36 @@ export interface CurrentWeather {
   precipMm: number | null;
   /** US AQI, or null when the provider has no air-quality data. */
   aqi: number | null;
+  /** European AQI, or null. */
+  euAqi?: number | null;
+  /** Pollutant concentrations in µg/m³, or null when not available. */
+  pollutants?: Pollutants | null;
+  /** Pollen in grains/m³; null outside the provider's coverage (Open-Meteo: Europe). */
+  pollen?: Pollen | null;
+}
+
+export interface Pollutants {
+  pm25: number | null;
+  pm10: number | null;
+  o3: number | null;
+  no2: number | null;
+  so2: number | null;
+  co: number | null;
+}
+
+export interface Pollen {
+  alder: number | null;
+  birch: number | null;
+  grass: number | null;
+  mugwort: number | null;
+  olive: number | null;
+  ragweed: number | null;
+}
+
+/** Precipitation for one 15-minute step (short-range nowcast). */
+export interface QuarterHour {
+  time: string;
+  precipMm: number | null;
 }
 
 export interface HourlyWeather {
@@ -71,6 +101,20 @@ export interface HourlyWeather {
   uvIndex: number | null;
   visibilityKm: number | null;
   aqi: number | null;
+  /** Optional extras. Providers that lack them leave them undefined or null. */
+  uvClearSky?: number | null;
+  /** Total and per-layer cloud cover, percent. Low < 2 km, mid 2–6 km, high > 6 km. */
+  cloudCover?: number | null;
+  cloudLow?: number | null;
+  cloudMid?: number | null;
+  cloudHigh?: number | null;
+  rainMm?: number | null;
+  showersMm?: number | null;
+  snowfallCm?: number | null;
+  /** Wind higher up, km/h. */
+  wind80Kmh?: number | null;
+  wind120Kmh?: number | null;
+  wind180Kmh?: number | null;
 }
 
 export interface DailyWeather {
@@ -86,6 +130,15 @@ export interface DailyWeather {
   sunrise: string | null;
   sunset: string | null;
   uvIndexMax: number | null;
+  /** Optional extras. */
+  sunshineSec?: number | null;
+  daylightSec?: number | null;
+  precipHours?: number | null;
+  rainSumMm?: number | null;
+  showersSumMm?: number | null;
+  snowfallSumCm?: number | null;
+  gustMaxKmh?: number | null;
+  windDirDominantDeg?: number | null;
 }
 
 export type AlertSeverity = 'minor' | 'moderate' | 'severe';
@@ -109,8 +162,10 @@ export interface Forecast {
    * Use selectors.nextHours() for "from now" views.
    */
   hourly: HourlyWeather[];
-  /** Daily values starting today, usually 7 days. */
+  /** Daily values, usually yesterday (when the provider gives it) plus 7 days. Use selectors.dayIndexOf() for today. */
   daily: DailyWeather[];
+  /** 15-minute precipitation for about the next 2–3 hours. Empty when the provider has none. */
+  minutely15?: QuarterHour[];
   alerts: WeatherAlert[];
   /** Human-readable name of the data source, for attribution. */
   source: { name: string; url?: string };
